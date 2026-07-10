@@ -1,12 +1,14 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
-  PieChart, Calendar, BarChart2, Users, DollarSign, Download, Settings, Filter, FileText, Search
+  PieChart, Calendar, BarChart2, Users, DollarSign, Download, 
+  Settings, Filter, FileText, Search, Lock, CheckCircle
 } from 'lucide-react';
 import { cn, formatNumber, formatMoney } from '../../lib/utils';
-import { mockConsolidado } from './mockData';
-import { ConsolidadoMensualRow } from './types';
+import { useAppContext } from '../../context/AppContext';
+import { ConsolidadoMensualRow, CostoGeneral } from './types';
+import { calculateMonthlyConsolidado } from '../../services/consolidadoService';
 
-// Subcomponents (we will create these as simple tabs)
+// Subcomponents
 import { TablaConsolidado } from './TablaConsolidado';
 import { ComparativoGraficos } from './ComparativoGraficos';
 import { ConsolidadoCliente } from './ConsolidadoCliente';
@@ -14,21 +16,98 @@ import { CostosMensuales } from './CostosMensuales';
 
 export const ConsolidadoMensual = () => {
   const [activeTab, setActiveTab] = useState<'tabla' | 'comparativo' | 'cliente' | 'costos' | 'anual' | 'agrupadores'>('tabla');
-  const [selectedMonth, setSelectedMonth] = useState(7);
-  const [selectedYear, setSelectedYear] = useState(2026);
+  const { ufValue, orders, clients, user } = useAppContext();
   
-  // Filtrar data por mes y año
-  const dataMes = useMemo(() => {
-    return mockConsolidado.filter(d => d.mes === selectedMonth && d.year === selectedYear);
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  
+  // Local state for costs to pass to service
+  const [costosGenerales, setCostosGenerales] = useState<CostoGeneral[]>([]);
+  
+  // Load costs from localStorage for simplicity
+  useEffect(() => {
+    const savedCosts = localStorage.getItem('runbox_costos_generales');
+    if (savedCosts) {
+       try {
+         setCostosGenerales(JSON.parse(savedCosts));
+       } catch (e) {}
+    } else {
+       // Seed some mock costs
+       const initialCosts: CostoGeneral[] = [
+         { id: '1', mes: selectedMonth, year: selectedYear, categoria: 'Infraestructura', descripcion: 'AWS / MongoDB', monto: 120000, metodoDistribucion: 'proporcional_pedidos' },
+         { id: '2', mes: selectedMonth, year: selectedYear, categoria: 'SaaS', descripcion: 'TrackPod', monto: 450000, metodoDistribucion: 'proporcional_pedidos' },
+         { id: '3', mes: selectedMonth, year: selectedYear, categoria: 'Operación', descripcion: 'Galpón / Arriendo', monto: 800000, metodoDistribucion: 'proporcional_ingresos' }
+       ];
+       setCostosGenerales(initialCosts);
+    }
   }, [selectedMonth, selectedYear]);
+
+  // Load closed months history
+  const [closedMonths, setClosedMonths] = useState<Record<string, any>>({});
+  useEffect(() => {
+     const savedClosed = localStorage.getItem('runbox_closed_months');
+     if (savedClosed) {
+        try { setClosedMonths(JSON.parse(savedClosed)); } catch (e) {}
+     }
+  }, []);
+
+  const monthKey = `${selectedYear}-${selectedMonth}`;
+  const isMonthClosed = !!closedMonths[monthKey];
+
+  // Calculate live data or use closed data
+  const dataMes = useMemo(() => {
+    if (isMonthClosed) {
+       return closedMonths[monthKey].data as ConsolidadoMensualRow[];
+    }
+    
+    return calculateMonthlyConsolidado(
+       selectedMonth, 
+       selectedYear, 
+       ufValue, 
+       orders, 
+       clients, 
+       costosGenerales.filter(c => c.mes === selectedMonth && c.year === selectedYear)
+    );
+  }, [selectedMonth, selectedYear, ufValue, orders, clients, costosGenerales, isMonthClosed, closedMonths, monthKey]);
+
+  // Cerrar Mes handler
+  const handleCerrarMes = () => {
+    if (window.confirm(`¿Estás seguro de cerrar el mes ${selectedMonth}-${selectedYear}? Esto congelará los cálculos y guardará los resultados permanentes.`)) {
+       const newClosed = {
+          ...closedMonths,
+          [monthKey]: {
+             closedAt: new Date().toISOString(),
+             closedBy: user?.name || 'Admin',
+             data: dataMes
+          }
+       };
+       setClosedMonths(newClosed);
+       localStorage.setItem('runbox_closed_months', JSON.stringify(newClosed));
+    }
+  };
+
+  const handleUpdateCostos = (newCostos: CostoGeneral[]) => {
+    setCostosGenerales(newCostos);
+    localStorage.setItem('runbox_costos_generales', JSON.stringify(newCostos));
+  };
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Consolidado Mensual</h1>
+          <div className="flex items-center gap-3">
+             <h1 className="text-2xl font-bold text-slate-900">Consolidado Mensual</h1>
+             {isMonthClosed && (
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700">
+                   <Lock className="w-3 h-3 mr-1" /> Mes Cerrado
+                </span>
+             )}
+          </div>
           <p className="text-slate-500 text-sm mt-1">Análisis financiero y operativo de la empresa.</p>
+          {isMonthClosed && (
+             <p className="text-xs text-amber-600 mt-1">Cerrado el {new Date(closedMonths[monthKey].closedAt).toLocaleDateString()} por {closedMonths[monthKey].closedBy}</p>
+          )}
         </div>
         
         <div className="flex items-center gap-3">
@@ -46,11 +125,21 @@ export const ConsolidadoMensual = () => {
             onChange={(e) => setSelectedYear(Number(e.target.value))}
             className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
           >
-            {[2024, 2025, 2026].map(y => (
+            {[2024, 2025, 2026, 2027].map(y => (
               <option key={y} value={y}>{y}</option>
             ))}
           </select>
-
+          
+          {!isMonthClosed && (
+            <button 
+               onClick={handleCerrarMes}
+               className="flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700 transition-colors"
+            >
+              <CheckCircle className="w-4 h-4 mr-2" />
+              Cerrar Mes
+            </button>
+          )}
+          
           <button className="flex items-center px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-bold hover:bg-slate-900 transition-colors">
             <Download className="w-4 h-4 mr-2" />
             Exportar
@@ -86,9 +175,17 @@ export const ConsolidadoMensual = () => {
       {/* Content */}
       <div className="mt-6">
         {activeTab === 'tabla' && <TablaConsolidado data={dataMes} />}
-        {activeTab === 'comparativo' && <ComparativoGraficos data={mockConsolidado} />}
-        {activeTab === 'cliente' && <ConsolidadoCliente data={mockConsolidado} />}
-        {activeTab === 'costos' && <CostosMensuales />}
+        {activeTab === 'comparativo' && <ComparativoGraficos data={dataMes} />}
+        {activeTab === 'cliente' && <ConsolidadoCliente data={dataMes} />}
+        {activeTab === 'costos' && (
+           <CostosMensuales 
+             costos={costosGenerales} 
+             mes={selectedMonth} 
+             year={selectedYear} 
+             onUpdate={handleUpdateCostos}
+             isClosed={isMonthClosed}
+           />
+        )}
         {activeTab === 'anual' && (
            <div className="bg-white p-12 text-center rounded-xl border border-slate-200 text-slate-500 font-medium">
              Resumen anual acumulado en desarrollo.

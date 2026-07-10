@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Client, Driver, Order, Route, TariffRule } from '../types';
 import { mockClients, mockDrivers, mockOrders, mockRoutes, mockTariffs } from '../data/mockData';
+import { getOrders } from '../data/orders';
 
 interface AppContextType {
   orders: Order[];
@@ -20,7 +21,10 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
-  const [orders, setOrders] = useState<Order[]>(mockOrders);
+  const [orders, setOrders] = useState<Order[]>(() => {
+    const saved = getOrders();
+    return saved.length > 0 ? saved : mockOrders;
+  });
   const [clients, setClients] = useState<Client[]>(mockClients);
   const [drivers, setDrivers] = useState<Driver[]>(mockDrivers);
   const [routes, setRoutes] = useState<Route[]>(mockRoutes);

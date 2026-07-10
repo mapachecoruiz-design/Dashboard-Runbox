@@ -36,19 +36,19 @@ export const TablaConsolidado = ({ data }: { data: ConsolidadoMensualRow[] }) =>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
           <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Total Pedidos</div>
-          <div className="text-2xl font-bold text-slate-900">{formatNumber(totals.pedidos)}</div>
+          <div className="text-2xl font-bold text-slate-900 truncate">{formatNumber(totals.pedidos)}</div>
         </div>
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
           <div className="text-[10px] font-bold uppercase tracking-widest text-indigo-500 mb-1">Total Ingresos</div>
-          <div className="text-2xl font-bold text-indigo-700">${formatMoney(totals.ingresoSinIva)}</div>
+          <div className="text-2xl font-bold text-indigo-700 truncate">${formatMoney(totals.ingresoSinIva)}</div>
         </div>
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
           <div className="text-[10px] font-bold uppercase tracking-widest text-rose-500 mb-1">Total Costos</div>
-          <div className="text-2xl font-bold text-rose-700">${formatMoney(totals.costoMensual)}</div>
+          <div className="text-2xl font-bold text-rose-700 truncate">${formatMoney(totals.costoMensual)}</div>
         </div>
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
           <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-500 mb-1">Margen Total</div>
-          <div className="text-2xl font-bold text-emerald-700">${formatMoney(totals.margenBruto)}</div>
+          <div className="text-2xl font-bold text-emerald-700 truncate">${formatMoney(totals.margenBruto)}</div>
         </div>
         <div className="bg-slate-900 p-4 rounded-xl shadow-sm text-white flex flex-col justify-center items-center">
           <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Margen %</div>

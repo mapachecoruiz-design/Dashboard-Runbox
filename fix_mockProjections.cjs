@@ -1,7 +1,9 @@
-import { clients } from './clients';
+const fs = require('fs');
+
+const mockProjectionsContent = `import { clients } from './clients';
 import { initialTariffs, BaseTariff } from './tariffs';
 
-export type TariffType = 'por_pedido' | 'por_ruta' | 'fija' | 'cargo_fijo_mas_variable' | 'cargo_fijo_uf_mas_variable_uf' | 'agrupador' | 'formula_especial';
+export type TariffType = 'por_pedido' | 'fija' | 'cargo_fijo_mas_variable' | 'cargo_fijo_uf_mas_variable_uf' | 'agrupador' | 'formula_especial';
 export type CalendarType = 'lunes_domingo' | 'lunes_sabado' | 'lunes_viernes';
 
 export interface ClientProjectionConfig {
@@ -55,3 +57,5 @@ export const getMockAccumulatedOrders = (id: string) => {
   const sum = id.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
   return (sum * 13) % 400 + 10; 
 };
+`;
+fs.writeFileSync('src/data/mockProjections.ts', mockProjectionsContent);

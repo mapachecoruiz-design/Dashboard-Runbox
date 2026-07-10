@@ -1,5 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { TrendingUp, DollarSign, Package, Edit2, Check, X, AlertCircle } from 'lucide-react';
+const fs = require('fs');
+
+const code = `import React, { useState, useMemo, useEffect } from 'react';
+import { TrendingUp, DollarSign, Package, Edit2, Check, X, FileSpreadsheet, LayoutDashboard, List, History } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { calculateClientRevenue } from '../services/tariffEngine';
 import { calculateWorkingDays } from '../utils/calendar';
@@ -86,6 +88,8 @@ export const Projections = () => {
   const [configs, setConfigs] = useState<ClientProjectionConfig[]>([]);
 
   useEffect(() => {
+    // Only generate configs if empty, or we could merge new clients. 
+    // For simplicity, we just initialize once or when clients length changes.
     if (configs.length !== clients.length) {
        setConfigs(generateProjectionsConfig(clients, ufValue));
     }
@@ -106,8 +110,11 @@ export const Projections = () => {
 
   const calculated = useMemo(() => {
     const cutoff = new Date(filterCutoffDate + 'T23:59:59');
+    // Ensure we trick calculateProjection to use the right month for days calculation
+    // By passing a date that is within the selected month and year, up to the cutoff date day.
     let refDate = cutoff;
     if (cutoff.getMonth() + 1 !== filterMonth || cutoff.getFullYear() !== filterYear) {
+      // If cutoff is outside the month, just use the end of the selected month
       refDate = new Date(filterYear, filterMonth, 0); 
     }
 
@@ -137,8 +144,12 @@ export const Projections = () => {
 
   const totals = useMemo(() => {
     return calculated.reduce((acc, curr) => {
+      // Avoid double counting if showAgrupadores is true and subclients are also present
+      // For totals, it is always safer to sum only non-agrupadores OR only agrupadores + standalone
       if (curr.tipoTarifa === 'agrupador') return acc; 
       
+      // Only sum non-agrupadores that are not subclients if we want standalone totals, 
+      // but actually the requested standard is just to sum all non-agrupadores for the global total.
       return {
         accumulated: acc.accumulated + curr.accumulated,
         proyectados: acc.proyectados + curr.proyectados,
@@ -271,8 +282,8 @@ export const Projections = () => {
               <BarChart data={rankingByMonto.slice(0, 10).map(c => ({ name: c.name, monto: c.sinIva }))}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10, fontWeight: 600}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10, fontWeight: 600}} tickFormatter={(val) => `$${(val/1000000).toFixed(1)}M`} />
-                <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px'}} formatter={(val: number) => `$${formatMoney(val)}`} />
+                <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10, fontWeight: 600}} tickFormatter={(val) => \`\$\${(val/1000000).toFixed(1)}M\`} />
+                <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px'}} formatter={(val: number) => \`\$\${formatMoney(val)}\`} />
                 <Bar dataKey="monto" fill="#10b981" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -476,3 +487,5 @@ export const Projections = () => {
     </div>
   );
 };
+`;
+fs.writeFileSync('src/pages/Projections.tsx', code);
