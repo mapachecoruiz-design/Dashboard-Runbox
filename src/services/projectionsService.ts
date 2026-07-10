@@ -1,5 +1,5 @@
-import { Order, Client, TariffRule } from '../types';
-import { isBefore, startOfDay, isSameDay } from 'date-fns';
+import { Order, Client } from '../types';
+import { isBefore, startOfDay } from 'date-fns';
 import { ClientProjectionConfig, TariffType, CalendarType } from '../data/mockProjections';
 import { initialTariffs, BaseTariff } from '../data/tariffs';
 
@@ -15,10 +15,13 @@ export const getAccumulatedOrdersByClient = (
   const filtered = orders.filter(o => {
     if (o.clientId !== clientId) return false;
     
+    // Ignore completely invalid statuses for accumulated (we want operational volume)
+    if (['devuelto'].includes(o.status)) return false;
+
+    // Use date order
     const dateString = o.deliveryDate || o.pickupDate || o.createdAt;
     if (!dateString) return false;
     
-    // Simple Date object parsing, assuming YYYY-MM-DD or full ISO
     const localDate = new Date(dateString);
     if (isNaN(localDate.getTime())) return false;
     
@@ -40,35 +43,41 @@ export const generateProjectionsConfig = (
 ): ClientProjectionConfig[] => {
   return clientsList.map(c => {
     const clientName = c.name.toLowerCase();
-    const t = initialTariffs.find(t => t.clientId === c.id) || {
-      tipoTarifa: 'fija', moneda: 'CLP', aplicaIva: false
-    } as BaseTariff;
-    
+    const t = initialTariffs.find(t => t.clientId === c.id);
+
     let calendarType: CalendarType = 'lunes_viernes';
-    if (t.calendarType) {
+
+    if (t?.calendarType) {
       calendarType = t.calendarType;
-    } else {
-       // defaults by name rules
-       if (clientName.includes('booz')) calendarType = 'lunes_domingo';
-       else if (clientName.includes('liga') || clientName.includes('farmaloop') || clientName.includes('marketcare') || clientName.includes('sesfar')) calendarType = 'lunes_sabado';
+    } else if (clientName.includes('booz')) {
+      calendarType = 'lunes_domingo';
+    } else if (
+      clientName.includes('liga') ||
+      clientName.includes('farmaloop') ||
+      clientName.includes('marketcare') ||
+      clientName.includes('sesfar')
+    ) {
+      calendarType = 'lunes_sabado';
     }
+
+    const isBooz = clientName.includes('booz');
 
     return {
       id: c.id,
       name: c.name,
       diasTrabajados: 0,
       diasMes: 22,
-      tipoTarifa: t.tipoTarifa as TariffType,
-      precio: t.precio || 0,
-      moneda: t.moneda,
-      valorUf: t.moneda === 'UF' ? ufValue : undefined,
-      cargoFijo: t.cargoFijo,
-      cargoVariable: t.cargoVariable,
-      aplicaIva: t.aplicaIva,
-      observaciones: t.observaciones || (c.isAgrupador ? 'Agrupador' : undefined),
+      tipoTarifa: (t?.tipoTarifa || 'por_pedido') as TariffType,
+      precio: t?.precio || 0,
+      moneda: t?.moneda || 'CLP',
+      valorUf: t?.moneda === 'UF' ? ufValue : undefined,
+      cargoFijo: t?.cargoFijo,
+      cargoVariable: t?.cargoVariable,
+      aplicaIva: t?.aplicaIva ?? true,
+      observaciones: t?.observaciones || (c.isAgrupador ? 'Agrupador' : undefined),
       subClients: c.subClients,
-      calendarType: calendarType,
-      countNormalHolidays: clientName.includes('booz') ? true : false,
+      calendarType,
+      countNormalHolidays: isBooz,
       countIrrenunciableHolidays: false,
       manualAdjustment: false
     };

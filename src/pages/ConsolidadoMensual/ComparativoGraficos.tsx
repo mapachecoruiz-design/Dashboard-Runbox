@@ -14,18 +14,16 @@ export const ComparativoGraficos = ({ data }: { data: any[] }) => {
 
   let chartData: any[] = [];
   
-  // Si no hay datos (ej. mes futuro sin pedidos), usamos un fallback vacío o con datos base.
-  // Como no recibimos historial acá en los props aún, mostramos solo el mes actual real.
   if (currentTotals.pedidos > 0 || currentTotals.ingresos > 0) {
      chartData = [
        { name: 'Mes Actual', ingresos: currentTotals.ingresos, costos: currentTotals.costos, pedidos: currentTotals.pedidos }
      ];
   } else {
-     // Fallback when data is empty
-     chartData = [
-       { name: 'Ene', ingresos: 45000000, costos: 30000000, pedidos: 8500 },
-       { name: 'Feb', ingresos: 42000000, costos: 28000000, pedidos: 8100 },
-     ];
+     return (
+       <div className="bg-white p-12 text-center rounded-xl border border-slate-200 text-slate-500 font-medium">
+         No hay datos suficientes para comparar meses.
+       </div>
+     );
   }
 
   return (
