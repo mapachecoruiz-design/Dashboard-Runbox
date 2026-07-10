@@ -10,25 +10,23 @@ export const getAccumulatedOrdersByClient = (
   year: number,
   cutoffDate: Date
 ): number => {
-  const targetMonth = month - 1; 
+  const targetMonth = month - 1;
   
   const filtered = orders.filter(o => {
     if (o.clientId !== clientId) return false;
-    if (!o.deliveryDate) return false;
     
-    // Ignore failed and returned if needed? The mock logic counted everything or was hardcoded.
-    // Let's count them unless requested otherwise.
+    const dateString = o.deliveryDate || o.pickupDate || o.createdAt;
+    if (!dateString) return false;
     
-    const d = new Date(o.deliveryDate);
-    // Be careful with timezone, use UTC if needed, but simple Date object works for local YYYY-MM-DD
-    const [y, m, day] = o.deliveryDate.split('-');
-    const localDate = new Date(Number(y), Number(m) - 1, Number(day));
+    // Simple Date object parsing, assuming YYYY-MM-DD or full ISO
+    const localDate = new Date(dateString);
+    if (isNaN(localDate.getTime())) return false;
     
     if (localDate.getMonth() !== targetMonth || localDate.getFullYear() !== year) return false;
     
     const dStart = startOfDay(localDate);
     const cutoffStart = startOfDay(cutoffDate);
-    if (isBefore(cutoffStart, dStart)) return false; 
+    if (isBefore(cutoffStart, dStart)) return false;
     
     return true;
   });
@@ -41,6 +39,7 @@ export const generateProjectionsConfig = (
   ufValue: number
 ): ClientProjectionConfig[] => {
   return clientsList.map(c => {
+    const clientName = c.name.toLowerCase();
     const t = initialTariffs.find(t => t.clientId === c.id) || {
       tipoTarifa: 'fija', moneda: 'CLP', aplicaIva: false
     } as BaseTariff;
@@ -50,9 +49,8 @@ export const generateProjectionsConfig = (
       calendarType = t.calendarType;
     } else {
        // defaults by name rules
-       const name = c.name.toLowerCase();
-       if (name.includes('booz')) calendarType = 'lunes_domingo';
-       else if (name.includes('liga') || name.includes('farmaloop') || name.includes('marketcare') || name.includes('sesfar')) calendarType = 'lunes_sabado';
+       if (clientName.includes('booz')) calendarType = 'lunes_domingo';
+       else if (clientName.includes('liga') || clientName.includes('farmaloop') || clientName.includes('marketcare') || clientName.includes('sesfar')) calendarType = 'lunes_sabado';
     }
 
     return {
@@ -68,9 +66,9 @@ export const generateProjectionsConfig = (
       cargoVariable: t.cargoVariable,
       aplicaIva: t.aplicaIva,
       observaciones: t.observaciones || (c.isAgrupador ? 'Agrupador' : undefined),
-      subClients: c.subClients as string[] | undefined,
+      subClients: c.subClients,
       calendarType: calendarType,
-      countNormalHolidays: name.includes('booz') ? true : false,
+      countNormalHolidays: clientName.includes('booz') ? true : false,
       countIrrenunciableHolidays: false,
       manualAdjustment: false
     };

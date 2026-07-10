@@ -7,6 +7,7 @@ import { cn, formatNumber, formatMoney } from '../../lib/utils';
 import { useAppContext } from '../../context/AppContext';
 import { ConsolidadoMensualRow, CostoGeneral } from './types';
 import { calculateMonthlyConsolidado } from '../../services/consolidadoService';
+import { loadFromStorage, saveToStorage } from '../../lib/storage';
 
 // Subcomponents
 import { TablaConsolidado } from './TablaConsolidado';
@@ -26,29 +27,18 @@ export const ConsolidadoMensual = () => {
   
   // Load costs from localStorage for simplicity
   useEffect(() => {
-    const savedCosts = localStorage.getItem('runbox_costos_generales');
-    if (savedCosts) {
-       try {
-         setCostosGenerales(JSON.parse(savedCosts));
-       } catch (e) {}
-    } else {
-       // Seed some mock costs
-       const initialCosts: CostoGeneral[] = [
-         { id: '1', mes: selectedMonth, year: selectedYear, categoria: 'Infraestructura', descripcion: 'AWS / MongoDB', monto: 120000, metodoDistribucion: 'proporcional_pedidos' },
-         { id: '2', mes: selectedMonth, year: selectedYear, categoria: 'SaaS', descripcion: 'TrackPod', monto: 450000, metodoDistribucion: 'proporcional_pedidos' },
-         { id: '3', mes: selectedMonth, year: selectedYear, categoria: 'Operación', descripcion: 'Galpón / Arriendo', monto: 800000, metodoDistribucion: 'proporcional_ingresos' }
-       ];
-       setCostosGenerales(initialCosts);
-    }
+    const initialCosts: CostoGeneral[] = [
+      { id: '1', mes: selectedMonth, year: selectedYear, categoria: 'Infraestructura', descripcion: 'AWS / MongoDB', monto: 120000, metodoDistribucion: 'proporcional_pedidos' },
+      { id: '2', mes: selectedMonth, year: selectedYear, categoria: 'SaaS', descripcion: 'TrackPod', monto: 450000, metodoDistribucion: 'proporcional_pedidos' },
+      { id: '3', mes: selectedMonth, year: selectedYear, categoria: 'Operación', descripcion: 'Galpón / Arriendo', monto: 800000, metodoDistribucion: 'proporcional_ingresos' }
+    ];
+    setCostosGenerales(loadFromStorage('runbox_costos_generales', initialCosts));
   }, [selectedMonth, selectedYear]);
 
   // Load closed months history
   const [closedMonths, setClosedMonths] = useState<Record<string, any>>({});
   useEffect(() => {
-     const savedClosed = localStorage.getItem('runbox_closed_months');
-     if (savedClosed) {
-        try { setClosedMonths(JSON.parse(savedClosed)); } catch (e) {}
-     }
+    setClosedMonths(loadFromStorage('runbox_monthly_closures', {}));
   }, []);
 
   const monthKey = `${selectedYear}-${selectedMonth}`;
@@ -81,14 +71,14 @@ export const ConsolidadoMensual = () => {
              data: dataMes
           }
        };
-       setClosedMonths(newClosed);
-       localStorage.setItem('runbox_closed_months', JSON.stringify(newClosed));
+      setClosedMonths(newClosed);
+      saveToStorage('runbox_monthly_closures', newClosed);
     }
   };
 
   const handleUpdateCostos = (newCostos: CostoGeneral[]) => {
     setCostosGenerales(newCostos);
-    localStorage.setItem('runbox_costos_generales', JSON.stringify(newCostos));
+    saveToStorage('runbox_costos_generales', newCostos);
   };
 
   return (

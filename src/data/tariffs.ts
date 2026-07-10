@@ -1,6 +1,6 @@
 import { ClientId } from './clients';
 
-export type TariffType = 'fija' | 'por_pedido' | 'por_ruta' | 'cargo_fijo_uf_mas_variable_uf' | 'agrupador' | 'formula_especial';
+export type TariffType = 'fija' | 'por_pedido' | 'por_ruta' | 'cargo_fijo_mas_variable' | 'cargo_fijo_uf_mas_variable_uf' | 'agrupador' | 'formula_especial';
 
 export interface BaseTariff {
   clientId: ClientId;
@@ -26,7 +26,7 @@ export const initialTariffs: BaseTariff[] = [
   { clientId: 'booz_pedidos_grandes', tipoTarifa: 'fija', moneda: 'CLP', precio: 2000000, aplicaIva: true, observaciones: 'Cargo especial editable' },
   
   // Bazar Revistas
-  { clientId: 'bazar_revistas', tipoTarifa: 'formula_especial', moneda: 'CLP', aplicaIva: true, observaciones: 'Si son más de 30 revistas por día es $3500, si no $2990' },
+  { clientId: 'bazar_revistas', tipoTarifa: 'formula_especial', moneda: 'CLP', precio: 2990, aplicaIva: true, observaciones: 'Si promedio diario supera 30 es $3500, si no $2990' },
   
   // Farmaloop
   { clientId: 'farmaloop_9am', tipoTarifa: 'por_pedido', moneda: 'CLP', precio: 3950, aplicaIva: true, calendarType: 'lunes_sabado' },
@@ -49,7 +49,7 @@ export const initialTariffs: BaseTariff[] = [
   { clientId: 'mundo_gato', tipoTarifa: 'por_pedido', moneda: 'UF', precio: 0.09, aplicaIva: true, calendarType: 'lunes_viernes' },
   
   // El Reinal
-  { clientId: 'el_reinal', tipoTarifa: 'formula_especial', moneda: 'UF', aplicaIva: true, observaciones: '(5 UF + MAX(0, pedidos - 30) * 0.15 UF)', calendarType: 'lunes_viernes' },
+  { clientId: 'el_reinal', tipoTarifa: 'formula_especial', moneda: 'UF', cargoFijo: 5, cargoVariable: 0.15, aplicaIva: true, observaciones: '(5 UF + MAX(0, pedidos - 30) * 0.15 UF)', calendarType: 'lunes_viernes' },
   
   // Yapp
   { clientId: 'yapp', tipoTarifa: 'agrupador', moneda: 'CLP', aplicaIva: true },
@@ -63,5 +63,5 @@ export const initialTariffs: BaseTariff[] = [
   { clientId: 'valdivia', tipoTarifa: 'por_pedido', moneda: 'UF', precio: 0.1035, aplicaIva: true, calendarType: 'lunes_viernes' },
   
   { clientId: 'intent', tipoTarifa: 'por_pedido', moneda: 'UF', precio: 0.09, aplicaIva: true, calendarType: 'lunes_viernes' },
-  { clientId: 'edark_store', tipoTarifa: 'formula_especial', moneda: 'UF', aplicaIva: true, observaciones: 'Flex: 0.08, Bodega: 0.095. Hasta 5 bultos. Adicional 0.011 UF' },
+  { clientId: 'edark_store', tipoTarifa: 'formula_especial', moneda: 'UF', precio: 0.08, aplicaIva: true, observaciones: 'Flex: 0.08, Bodega: 0.095. Hasta 5 bultos. Adicional 0.011 UF' },
 ];

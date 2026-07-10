@@ -18,6 +18,7 @@ import { Reports } from './pages/Reports';
 import { Projections } from './pages/Projections';
 import { DriverPayments } from './pages/DriverPayments';
 import { Integrations } from './pages/Integrations';
+import { Settings } from './pages/Settings';
 import { ConsolidadoMensual } from './pages/ConsolidadoMensual/ConsolidadoMensual';
 
 export default function App() {
@@ -39,6 +40,7 @@ export default function App() {
             <Route path="projections" element={<Projections />} />
             <Route path="consolidado" element={<ConsolidadoMensual />} />
             <Route path="integrations" element={<Integrations />} />
+            <Route path="settings" element={<Settings />} />
             <Route path="*" element={<div className="text-center py-20 text-slate-500">Módulo en construcción</div>} />
           </Route>
         </Routes>

@@ -1,3 +1,5 @@
+import { loadFromStorage, saveToStorage } from '../lib/storage';
+
 export interface ImportHistoryItem {
   id: string;
   fileName: string;
@@ -15,16 +17,11 @@ export interface ImportHistoryItem {
 const STORAGE_KEY = 'runbox_imports_history';
 
 export const getImportHistory = (): ImportHistoryItem[] => {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch (e) {
-    return [];
-  }
+  return loadFromStorage(STORAGE_KEY, []);
 };
 
 export const addImportHistory = (item: ImportHistoryItem) => {
   const history = getImportHistory();
   history.push(item);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+  saveToStorage(STORAGE_KEY, history);
 };

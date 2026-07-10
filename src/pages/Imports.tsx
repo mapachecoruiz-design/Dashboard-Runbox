@@ -8,7 +8,8 @@ import { Order } from '../types';
 import { useAppContext } from '../context/AppContext';
 import { clients } from '../data/clients';
 import { addImportHistory, getImportHistory, ImportHistoryItem } from '../data/imports';
-import { normalizeStatus, normalizeDate, findClientId, isDuplicate } from '../services/orderNormalizer';
+import { normalizeStatus, normalizeDate, findClientId } from '../services/orderNormalizer';
+import { isDuplicate } from '../services/duplicateDetector';
 
 type ImportStep = 'select' | 'mapping' | 'preview' | 'result';
 
@@ -18,6 +19,7 @@ export const Imports = () => {
   const [history, setHistory] = useState<ImportHistoryItem[]>([]);
   
   const [step, setStep] = useState<ImportStep>('select');
+  const [dataSource, setDataSource] = useState<string>('Plantilla RunBox');
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   
@@ -27,6 +29,7 @@ export const Imports = () => {
   
   const [previewOrders, setPreviewOrders] = useState<{ order: Order, isError: boolean, errorMsg: string, isDuplicate: boolean }[]>([]);
   const [summary, setSummary] = useState({ total: 0, valid: 0, errors: 0, duplicates: 0 });
+  const [duplicateAction, setDuplicateAction] = useState<'skip' | 'update'>('skip');
 
   React.useEffect(() => {
      if (activeTab === 'history') {
@@ -68,7 +71,7 @@ export const Imports = () => {
     // Reverse mapping for easy lookup: stdField -> fileCol
     const stdToFile: Record<string, string> = {};
     Object.entries(mapping).forEach(([fCol, stdF]) => {
-      if (stdF) stdToFile[stdF] = fCol;
+      if (stdF) stdToFile[stdF as string] = fCol;
     });
 
     const existingOrders = getOrders();
@@ -78,11 +81,12 @@ export const Imports = () => {
     let dupCount = 0;
 
     rawData.forEach((row, i) => {
-      // Extract mapped fields
-      const idPedidoCliente = stdToFile['clientOrderId'] ? row[stdToFile['clientOrderId']] : undefined;
-      const clienteStr = stdToFile['cliente'] ? row[stdToFile['cliente']] : undefined;
-      const fechaEntregaStr = stdToFile['deliveryDate'] ? row[stdToFile['deliveryDate']] : undefined;
-      const comuna = stdToFile['commune'] ? row[stdToFile['commune']] : undefined;
+      const getVal = (field: string) => stdToFile[field] ? row[stdToFile[field]] : undefined;
+      
+      const idPedidoCliente = getVal('clientOrderId');
+      const clienteStr = getVal('clientId');
+      const fechaEntregaStr = getVal('deliveryDate');
+      const comuna = getVal('commune');
       
       const isError = !idPedidoCliente || !clienteStr || !fechaEntregaStr || !comuna;
       let errorMsg = '';
@@ -93,26 +97,31 @@ export const Imports = () => {
 
       const clientId = findClientId(clienteStr);
       const deliveryDate = normalizeDate(fechaEntregaStr);
+      const createdAt = getVal('createdAt') ? normalizeDate(getVal('createdAt')) : deliveryDate;
+      const pickupDate = getVal('pickupDate') ? normalizeDate(getVal('pickupDate')) : deliveryDate;
 
       const order: Order = {
         id: 'IMP-' + Date.now() + '-' + i,
         clientOrderId: String(idPedidoCliente || ''),
         clientId,
         deliveryDate,
-        createdAt: deliveryDate,
-        pickupDate: deliveryDate,
+        createdAt,
+        pickupDate,
         commune: String(comuna || ''),
-        region: 'RM',
-        address: stdToFile['address'] ? String(row[stdToFile['address']] || '') : '',
-        status: normalizeStatus(stdToFile['status'] ? row[stdToFile['status']] : ''),
-        serviceType: 'normal',
-        driverId: stdToFile['chofer'] ? String(row[stdToFile['chofer']] || '') : null,
-        routeId: stdToFile['ruta'] ? String(row[stdToFile['ruta']] || '') : null,
-        packagesCount: stdToFile['packagesCount'] ? Number(row[stdToFile['packagesCount']]) || 1 : 1,
-        weight: 1,
-        chargedTariff: stdToFile['chargedTariff'] ? Number(row[stdToFile['chargedTariff']]) || 0 : 0,
-        estimatedCost: stdToFile['estimatedCost'] ? Number(row[stdToFile['estimatedCost']]) || 0 : 0,
-        estimatedMargin: 0
+        region: getVal('region') ? String(getVal('region')) : 'RM',
+        address: getVal('address') ? String(getVal('address')) : '',
+        status: normalizeStatus(getVal('status')),
+        serviceType: (getVal('serviceType') ? String(getVal('serviceType')) : 'normal') as any,
+        driverId: getVal('driverId') ? String(getVal('driverId')) : null,
+        routeId: getVal('routeId') ? String(getVal('routeId')) : null,
+        packagesCount: getVal('packagesCount') ? Number(getVal('packagesCount')) || 1 : 1,
+        weight: getVal('weight') ? Number(getVal('weight')) || 1 : 1,
+        chargedTariff: getVal('chargedTariff') ? Number(getVal('chargedTariff')) || 0 : 0,
+        estimatedCost: getVal('estimatedCost') ? Number(getVal('estimatedCost')) || 0 : 0,
+        estimatedMargin: getVal('estimatedMargin') ? Number(getVal('estimatedMargin')) || 0 : 0,
+        failureReason: getVal('failureReason') ? String(getVal('failureReason')) : undefined,
+        notes: getVal('notes') ? String(getVal('notes')) : undefined,
+        podLink: getVal('podLink') ? String(getVal('podLink')) : undefined
       };
 
       const isDup = isDuplicate(order, existingOrders);
@@ -133,20 +142,41 @@ export const Imports = () => {
   const confirmImport = () => {
     setIsProcessing(true);
     
-    // Solo importamos los validos y no duplicados (por defecto, omitir duplicados)
-    const validOrders = previewOrders.filter(p => !p.isError && !p.isDuplicate).map(p => p.order);
+    let ordersToImport = previewOrders.filter(p => !p.isError && !p.isDuplicate).map(p => p.order);
+    let ordersToUpdate = previewOrders.filter(p => !p.isError && p.isDuplicate).map(p => p.order);
     
-    const updated = addOrders(validOrders);
-    setOrders(updated);
+    if (duplicateAction === 'update') {
+      const existingOrders = getOrders();
+      const newOrdersList = [...existingOrders];
+      
+      ordersToUpdate.forEach(updatedOrder => {
+        const idx = newOrdersList.findIndex(o => 
+          o.clientId === updatedOrder.clientId && 
+          o.clientOrderId === updatedOrder.clientOrderId && 
+          o.deliveryDate === updatedOrder.deliveryDate
+        );
+        if (idx !== -1) {
+          newOrdersList[idx] = { ...newOrdersList[idx], ...updatedOrder };
+        }
+      });
+      
+      // Add new ones
+      const updated = [...newOrdersList, ...ordersToImport];
+      setOrders(updated);
+      
+    } else {
+      const updated = addOrders(ordersToImport);
+      setOrders(updated);
+    }
     
     addImportHistory({
       id: 'HIST-' + Date.now(),
       fileName: file?.name || 'desconocido',
-      dataSource: 'General',
+      dataSource,
       date: new Date().toISOString(),
       user: 'Usuario Local',
       rowsRead: summary.total,
-      rowsImported: validOrders.length,
+      rowsImported: ordersToImport.length + (duplicateAction === 'update' ? ordersToUpdate.length : 0),
       errorsCount: summary.errors,
       duplicatesCount: summary.duplicates,
       status: summary.errors > 0 ? 'procesado_con_errores' : 'procesado'
@@ -193,7 +223,23 @@ export const Imports = () => {
       {activeTab === 'upload' ? (
         <>
           {step === 'select' && (
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center py-20">
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center py-12">
+               <div className="w-full max-w-md mb-8">
+                 <label className="block text-sm font-bold text-slate-700 mb-2">Origen de los datos</label>
+                 <select 
+                   className="w-full p-3 border border-slate-300 rounded-lg bg-slate-50 focus:ring-2 focus:ring-indigo-500"
+                   value={dataSource}
+                   onChange={(e) => setDataSource(e.target.value)}
+                 >
+                   <option value="Plantilla RunBox">Plantilla RunBox</option>
+                   <option value="Booz">Booz</option>
+                   <option value="TrackPod">TrackPod</option>
+                   <option value="Cliente genérico">Cliente genérico</option>
+                   <option value="Costos">Costos</option>
+                   <option value="Rutas">Rutas</option>
+                   <option value="Pagos choferes">Pagos choferes</option>
+                 </select>
+               </div>
                <UploadCloud className="w-16 h-16 text-indigo-200 mb-4" />
                <h2 className="text-lg font-bold text-slate-700">Subir archivo de pedidos</h2>
                <p className="text-sm text-slate-500 mb-6 text-center max-w-md">Selecciona un archivo CSV o Excel (.xlsx, .xls) para cargar pedidos al sistema.</p>
@@ -259,6 +305,22 @@ export const Imports = () => {
 
                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                  <div className="flex justify-between items-center mb-6">
+                   <div className="flex flex-col">
+                     <h2 className="text-lg font-bold text-slate-800">Vista Previa (primeros 20)</h2>
+                     {summary.duplicates > 0 && (
+                       <div className="flex gap-4 mt-2">
+                         <label className="flex items-center gap-2 text-sm text-slate-700">
+                           <input type="radio" name="dupAction" checked={duplicateAction === 'skip'} onChange={() => setDuplicateAction('skip')} className="text-indigo-600 focus:ring-indigo-500" />
+                           Omitir duplicados
+                         </label>
+                         <label className="flex items-center gap-2 text-sm text-slate-700">
+                           <input type="radio" name="dupAction" checked={duplicateAction === 'update'} onChange={() => setDuplicateAction('update')} className="text-indigo-600 focus:ring-indigo-500" />
+                           Actualizar duplicados
+                         </label>
+                       </div>
+                     )}
+                   </div>
+
                    <h2 className="text-lg font-bold text-slate-800">Vista Previa (primeros 20)</h2>
                    <div className="flex gap-2">
                      <button onClick={() => setStep('mapping')} className="px-4 py-2 border border-slate-300 text-slate-600 rounded-lg text-sm font-bold hover:bg-slate-50">Volver</button>

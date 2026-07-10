@@ -38,6 +38,9 @@ export interface Client {
   mainTariff: number;
   specialRules?: string;
   isActive: boolean;
+  isAgrupador?: boolean;
+  subClients?: string[];
+  parentClientId?: string;
 }
 
 export interface Driver {

@@ -4,6 +4,7 @@ import { cn } from '../lib/utils';
 import { calculateClientRevenue } from '../services/tariffEngine';
 import { calculateWorkingDays } from '../utils/calendar';
 import { useAppContext } from '../context/AppContext';
+import { loadFromStorage, saveToStorage } from '../lib/storage';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { ClientProjectionConfig, TariffType } from '../data/mockProjections';
 import { getAccumulatedOrdersByClient, generateProjectionsConfig } from '../services/projectionsService';
@@ -83,13 +84,19 @@ export const Projections = () => {
   const [showAgrupadores, setShowAgrupadores] = useState(true);
 
   // Initialize and persist configs in local state to allow manual adjustments
-  const [configs, setConfigs] = useState<ClientProjectionConfig[]>([]);
+  const [configs, setConfigs] = useState<ClientProjectionConfig[]>(() => {
+    return loadFromStorage('runbox_projection_adjustments', []);
+  });
 
   useEffect(() => {
-    if (configs.length !== clients.length) {
-       setConfigs(generateProjectionsConfig(clients, ufValue));
+    if (configs.length === 0 && clients.length > 0) {
+       const initialConfigs = generateProjectionsConfig(clients, ufValue);
+       setConfigs(initialConfigs);
+       saveToStorage('runbox_projection_adjustments', initialConfigs);
+    } else {
+       saveToStorage('runbox_projection_adjustments', configs);
     }
-  }, [clients, ufValue, configs.length]);
+  }, [clients, ufValue, configs]);
 
   const [activeTab, setActiveTab] = useState<'tabla' | 'tarjetas' | 'resumen' | 'comparativa' | 'historico'>('tabla');  
   const [editingId, setEditingId] = useState<string | null>(null);

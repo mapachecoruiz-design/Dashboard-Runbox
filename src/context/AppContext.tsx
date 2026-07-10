@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Client, Driver, Order, Route, TariffRule } from '../types';
 import { mockClients, mockDrivers, mockOrders, mockRoutes, mockTariffs } from '../data/mockData';
-import { getOrders } from '../data/orders';
+import { loadFromStorage, saveToStorage } from '../lib/storage';
 
 interface AppContextType {
   orders: Order[];
@@ -16,20 +16,41 @@ interface AppContextType {
   setTariffs: React.Dispatch<React.SetStateAction<TariffRule[]>>;
   ufValue: number;
   setUfValue: React.Dispatch<React.SetStateAction<number>>;
+  user: { name: string; email: string; role: string } | null;
+  resetData: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
-  const [orders, setOrders] = useState<Order[]>(() => {
-    const saved = getOrders();
-    return saved.length > 0 ? saved : mockOrders;
-  });
-  const [clients, setClients] = useState<Client[]>(mockClients);
-  const [drivers, setDrivers] = useState<Driver[]>(mockDrivers);
-  const [routes, setRoutes] = useState<Route[]>(mockRoutes);
-  const [tariffs, setTariffs] = useState<TariffRule[]>(mockTariffs);
+  const [orders, setOrders] = useState<Order[]>(() => loadFromStorage('runbox_orders', mockOrders));
+  const [clients, setClients] = useState<Client[]>(() => loadFromStorage('runbox_clients', mockClients));
+  const [drivers, setDrivers] = useState<Driver[]>(() => loadFromStorage('runbox_drivers', mockDrivers));
+  const [routes, setRoutes] = useState<Route[]>(() => loadFromStorage('runbox_routes', mockRoutes));
+  const [tariffs, setTariffs] = useState<TariffRule[]>(() => loadFromStorage('runbox_tariffs', mockTariffs));
   const [ufValue, setUfValue] = useState<number>(37000);
+  const [user] = useState({ name: 'Admin User', email: 'admin@runbox.cl', role: 'admin' });
+
+  // Guardar en localStorage cuando cambien
+  useEffect(() => {
+    saveToStorage('runbox_orders', orders);
+  }, [orders]);
+
+  useEffect(() => {
+    saveToStorage('runbox_clients', clients);
+  }, [clients]);
+
+  useEffect(() => {
+    saveToStorage('runbox_drivers', drivers);
+  }, [drivers]);
+
+  useEffect(() => {
+    saveToStorage('runbox_routes', routes);
+  }, [routes]);
+
+  useEffect(() => {
+    saveToStorage('runbox_tariffs', tariffs);
+  }, [tariffs]);
 
   useEffect(() => {
     fetch('https://mindicador.cl/api/uf')
@@ -42,6 +63,23 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       .catch(err => console.error("Error fetching UF", err));
   }, []);
 
+  const resetData = () => {
+    localStorage.removeItem('runbox_orders');
+    localStorage.removeItem('runbox_clients');
+    localStorage.removeItem('runbox_drivers');
+    localStorage.removeItem('runbox_routes');
+    localStorage.removeItem('runbox_tariffs');
+    localStorage.removeItem('runbox_costos_generales');
+    localStorage.removeItem('runbox_projection_adjustments');
+    localStorage.removeItem('runbox_monthly_closures');
+    
+    setOrders(mockOrders);
+    setClients(mockClients);
+    setDrivers(mockDrivers);
+    setRoutes(mockRoutes);
+    setTariffs(mockTariffs);
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -50,7 +88,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         drivers, setDrivers,
         routes, setRoutes,
         tariffs, setTariffs,
-        ufValue, setUfValue
+        ufValue, setUfValue,
+        user,
+        resetData
       }}
     >
       {children}

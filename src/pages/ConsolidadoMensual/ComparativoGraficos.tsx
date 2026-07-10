@@ -5,17 +5,28 @@ import {
 import { formatMoney, formatNumber } from '../../lib/utils';
 
 export const ComparativoGraficos = ({ data }: { data: any[] }) => {
-  // En un caso real, data tendría evolución de varios meses. 
-  // Para mock, crearemos un dataset ficticio de evolución mes a mes.
-  const chartData = [
-    { name: 'Ene', ingresos: 45000000, costos: 30000000, pedidos: 8500 },
-    { name: 'Feb', ingresos: 42000000, costos: 28000000, pedidos: 8100 },
-    { name: 'Mar', ingresos: 48000000, costos: 32000000, pedidos: 9200 },
-    { name: 'Abr', ingresos: 51000000, costos: 34000000, pedidos: 9800 },
-    { name: 'May', ingresos: 55000000, costos: 35000000, pedidos: 10500 },
-    { name: 'Jun', ingresos: 52000000, costos: 33000000, pedidos: 9900 },
-    { name: 'Jul', ingresos: 58000000, costos: 36000000, pedidos: 11200 },
-  ];
+  // Calculamos totales reales del mes actual
+  const currentTotals = data.filter(r => !r.isAgrupador).reduce((acc, row) => ({
+    ingresos: acc.ingresos + row.ingresoSinIva,
+    costos: acc.costos + row.costoMensual,
+    pedidos: acc.pedidos + row.pedidosMes,
+  }), { ingresos: 0, costos: 0, pedidos: 0 });
+
+  let chartData: any[] = [];
+  
+  // Si no hay datos (ej. mes futuro sin pedidos), usamos un fallback vacío o con datos base.
+  // Como no recibimos historial acá en los props aún, mostramos solo el mes actual real.
+  if (currentTotals.pedidos > 0 || currentTotals.ingresos > 0) {
+     chartData = [
+       { name: 'Mes Actual', ingresos: currentTotals.ingresos, costos: currentTotals.costos, pedidos: currentTotals.pedidos }
+     ];
+  } else {
+     // Fallback when data is empty
+     chartData = [
+       { name: 'Ene', ingresos: 45000000, costos: 30000000, pedidos: 8500 },
+       { name: 'Feb', ingresos: 42000000, costos: 28000000, pedidos: 8100 },
+     ];
+  }
 
   return (
     <div className="space-y-6">

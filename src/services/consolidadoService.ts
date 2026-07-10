@@ -16,7 +16,6 @@ export const distributeCosts = (
   rows: ConsolidadoMensualRow[], 
   costos: CostoGeneral[]
 ): ConsolidadoMensualRow[] => {
-  // First calculate base totals
   let totalPedidos = 0;
   let totalIngresos = 0;
   
@@ -27,7 +26,6 @@ export const distributeCosts = (
     }
   });
 
-  // Keep a map of added costs per client
   const addedCosts: Record<string, number> = {};
   rows.forEach(r => addedCosts[r.clientId] = 0);
 
@@ -53,12 +51,10 @@ export const distributeCosts = (
           addedCosts[costo.clientId] += costo.monto;
        }
     }
-    // manual_porcentaje is more complex, skipped for simplicity unless specified
   });
 
-  // Apply distributed costs and recalculate margins
   const newRows = rows.map(row => {
-    if (row.isAgrupador) return row; // We will recalculate agrupadores next
+    if (row.isAgrupador) return row;
     
     const distributedCost = addedCosts[row.clientId] || 0;
     const finalCosto = row.costoMensual + distributedCost;
@@ -67,7 +63,7 @@ export const distributeCosts = (
     
     return {
       ...row,
-      costoMensual: finalCosto, // Updated cost with distributed overhead
+      costoMensual: finalCosto,
       margenBruto,
       margenPorcentaje,
       costoPromedioPedido: row.pedidosMes > 0 ? finalCosto / row.pedidosMes : 0,
@@ -75,7 +71,6 @@ export const distributeCosts = (
     };
   });
 
-  // Recalculate agrupadores based on updated subclients
   return newRows.map(row => {
     if (!row.isAgrupador) return row;
     
@@ -113,12 +108,10 @@ export const calculateMonthlyConsolidado = (
   orders: Order[],
   clients: Client[],
   costosGenerales: CostoGeneral[],
-  costoPromedioBase: number = 3000 // default cost per order for Choferes
+  costoPromedioBase: number = 3000
 ): ConsolidadoMensualRow[] => {
   const rows: ConsolidadoMensualRow[] = [];
   
-  // Last day of month for projection logic
-  const lastDay = new Date(year, month, 0);
   const configs = generateProjectionsConfig(clients, ufValue);
 
   // 1. Calculate standalone/subclients
@@ -129,31 +122,36 @@ export const calculateMonthlyConsolidado = (
     if (!config) continue;
 
     // Pedidos from the real orders database!
-    const accumulated = getAccumulatedOrdersByClient(orders, client.id, month, year, lastDay);
-    
+    // Contamos TODOS los pedidos reales del mes, sin proyectar.
+    const clientOrders = orders.filter(o => {
+      if (o.clientId !== client.id) return false;
+      const dateString = o.deliveryDate || o.pickupDate || o.createdAt;
+      if (!dateString) return false;
+      const d = new Date(dateString);
+      if (isNaN(d.getTime())) return false;
+      return d.getMonth() === month - 1 && d.getFullYear() === year;
+    });
+
+    const pedidosReales = clientOrders.length;
     let diasTrabajados = config.diasTrabajados;
-    let diasMes = config.diasMes;
-    
+
+    // Calcular diasTrabajados si es posible para fórmulas que dependan de ello
     if (!config.manualAdjustment && config.calendarType) {
+      const lastDay = new Date(year, month, 0);
       const cal = calculateWorkingDays(year, month - 1, config, lastDay);
-      diasMes = cal.autoDiasMes;
-      diasTrabajados = cal.autoDiasTrabajados;
-    }
-    
-    // Revenue logic (using projection end-of-month logic, but since date is end of month, it's exact real data if month is closed)
-    let proyectados = accumulated;
-    if (diasTrabajados > 0 && diasTrabajados < diasMes) {
-       proyectados = (accumulated / diasTrabajados) * diasMes;
+      diasTrabajados = cal.autoDiasTrabajados; // Asumiendo que todo el mes ya pasó o se usa para el cálculo promedio
     }
 
     const revenue = calculateClientRevenue(config as any, {
-      pedidos: proyectados,
+      pedidos: pedidosReales,
       diasTrabajados,
       valorUf: ufValue,
     });
 
-    // Base cost is driver cost for these orders.
-    const costoMensualBase = proyectados * costoPromedioBase;
+    // Calcular costos usando estimatedCost de cada orden, o el promedio base si no lo tiene.
+    const costoMensualBase = clientOrders.reduce((sum, order) => {
+      return sum + (order.estimatedCost || costoPromedioBase);
+    }, 0);
     
     const margenBruto = revenue.ingresoSinIva - costoMensualBase;
     const margenPorcentaje = revenue.ingresoSinIva > 0 ? margenBruto / revenue.ingresoSinIva : 0;
@@ -165,16 +163,16 @@ export const calculateMonthlyConsolidado = (
       clientId: client.id,
       clientName: client.name,
       isAgrupador: false,
-      pedidosMes: proyectados,
+      pedidosMes: pedidosReales,
       ingresoSinIva: revenue.ingresoSinIva,
       iva: revenue.iva,
       ingresoConIva: revenue.ingresoConIva,
       costoMensual: costoMensualBase,
       margenBruto,
       margenPorcentaje,
-      ingresoPromedioPedido: proyectados > 0 ? revenue.ingresoSinIva / proyectados : 0,
-      costoPromedioPedido: proyectados > 0 ? costoMensualBase / proyectados : 0,
-      margenPromedioPedido: proyectados > 0 ? margenBruto / proyectados : 0,
+      ingresoPromedioPedido: pedidosReales > 0 ? revenue.ingresoSinIva / pedidosReales : 0,
+      costoPromedioPedido: pedidosReales > 0 ? costoMensualBase / pedidosReales : 0,
+      margenPromedioPedido: pedidosReales > 0 ? margenBruto / pedidosReales : 0,
       variacionPedidos: 0, 
       variacionIngreso: 0,
       variacionCosto: 0,
@@ -183,7 +181,7 @@ export const calculateMonthlyConsolidado = (
     });
   }
 
-  // 2. Add agrupadores placeholders (will be filled in distributeCosts)
+  // 2. Add agrupadores placeholders
   for (const client of clients) {
     if (!client.isAgrupador) continue;
     rows.push({

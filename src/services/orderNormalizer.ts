@@ -9,6 +9,7 @@ export const normalizeStatus = (statusStr: string): OrderStatus => {
   if (['failed', 'no entregado', 'fallida', 'rechazo', 'fallido'].includes(s)) return 'fallido';
   if (['route', 'in route', 'en reparto', 'en ruta', 'en_ruta'].includes(s)) return 'en_ruta';
   if (['return', 'returned', 'devolución', 'devolucion', 'devuelto'].includes(s)) return 'devuelto';
+  if (['pending', 'pendiente'].includes(s)) return 'pendiente';
   if (['reentrega'].includes(s)) return 'reentrega';
   
   return 'pendiente';
@@ -20,6 +21,11 @@ export const normalizeDate = (dateStr: string): string => {
     const d = new Date(dateStr);
     if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
   } catch (e) {}
+  
+  const match = String(dateStr).match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/);
+  if (match) {
+    return `${match[3]}-${match[2]}-${match[1]}`;
+  }
   return String(dateStr).split(' ')[0];
 };
 
@@ -27,12 +33,4 @@ export const findClientId = (clientName: string): string => {
   if (!clientName) return 'desconocido';
   const c = clients.find(c => c.name.toLowerCase() === String(clientName).toLowerCase().trim());
   return c ? c.id : String(clientName).trim();
-};
-
-export const isDuplicate = (order: Order, existingOrders: Order[]): boolean => {
-  return existingOrders.some(o => 
-    o.clientId === order.clientId && 
-    o.clientOrderId === order.clientOrderId && 
-    o.deliveryDate === order.deliveryDate
-  );
 };
