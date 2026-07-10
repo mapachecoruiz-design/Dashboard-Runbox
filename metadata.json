@@ -1,0 +1,6 @@
+{
+  "name": "RunBox Control Center",
+  "description": "Plataforma interna para gestión de entregas, rutas, clientes y rentabilidad logística",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
