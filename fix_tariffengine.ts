@@ -1,4 +1,6 @@
-import { BaseTariff } from '../data/tariffs';
+import fs from 'fs';
+
+let content = `import { BaseTariff } from '../data/tariffs';
 
 export interface TariffCalculationParams {
   pedidos: number;
@@ -89,3 +91,6 @@ export const calculateClientMargin = (ingresoSinIva: number, costoTotal: number)
   const margenPorcentaje = ingresoSinIva > 0 ? margenBruto / ingresoSinIva : 0;
   return { margenBruto, margenPorcentaje };
 };
+`;
+
+fs.writeFileSync('src/services/tariffEngine.ts', content);
