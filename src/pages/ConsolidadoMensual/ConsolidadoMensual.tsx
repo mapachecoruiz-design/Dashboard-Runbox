@@ -17,7 +17,7 @@ import { CostosMensuales } from './CostosMensuales';
 
 export const ConsolidadoMensual = () => {
   const [activeTab, setActiveTab] = useState<'tabla' | 'comparativo' | 'cliente' | 'costos' | 'anual' | 'agrupadores'>('tabla');
-  const { ufValue, orders, clients, user } = useAppContext();
+  const { ufValue, orders, clients, user, tariffs } = useAppContext();
   
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -51,6 +51,7 @@ export const ConsolidadoMensual = () => {
     }
     
     return calculateMonthlyConsolidado(
+       tariffs,
        selectedMonth, 
        selectedYear, 
        ufValue, 
@@ -58,7 +59,7 @@ export const ConsolidadoMensual = () => {
        clients, 
        costosGenerales.filter(c => c.mes === selectedMonth && c.year === selectedYear)
     );
-  }, [selectedMonth, selectedYear, ufValue, orders, clients, costosGenerales, isMonthClosed, closedMonths, monthKey]);
+  }, [tariffs, selectedMonth, selectedYear, ufValue, orders, clients, costosGenerales, isMonthClosed, closedMonths, monthKey]);
 
   // Cerrar Mes handler
   const handleCerrarMes = () => {

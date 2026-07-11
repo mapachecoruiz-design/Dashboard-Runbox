@@ -14,9 +14,13 @@ export interface BaseTariff {
   countNormalHolidays?: boolean;
   countIrrenunciableHolidays?: boolean;
   observaciones?: string;
+  validFrom?: string;
+  validTo?: string | null;
+  history?: any[];
 }
 
 export const initialTariffs: BaseTariff[] = [
+
   // Booz
   { clientId: 'booz', tipoTarifa: 'agrupador', moneda: 'CLP', aplicaIva: true },
   { clientId: 'booz_ruta_normal', tipoTarifa: 'por_ruta', moneda: 'CLP', precio: 90000, aplicaIva: true, calendarType: 'lunes_domingo', countNormalHolidays: true },

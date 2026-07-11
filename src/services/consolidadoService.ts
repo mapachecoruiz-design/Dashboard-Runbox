@@ -102,6 +102,7 @@ export const distributeCosts = (
 };
 
 export const calculateMonthlyConsolidado = (
+  tariffsList: BaseTariff[],
   month: number,
   year: number,
   ufValue: number,
@@ -112,7 +113,7 @@ export const calculateMonthlyConsolidado = (
 ): ConsolidadoMensualRow[] => {
   const rows: ConsolidadoMensualRow[] = [];
   
-  const configs = generateProjectionsConfig(clients, ufValue);
+  const configs = generateProjectionsConfig(tariffsList, clients, ufValue);
 
   // 1. Calculate standalone/subclients
   for (const client of clients) {

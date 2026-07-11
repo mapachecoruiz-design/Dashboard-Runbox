@@ -75,7 +75,7 @@ const calculateProjection = (config: ClientProjectionConfig, accumulated: number
 };
 
 export const Projections = () => {
-  const { ufValue, clients, orders } = useAppContext();
+  const { ufValue, clients, orders, tariffs } = useAppContext();
   
   const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1);
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
@@ -90,7 +90,7 @@ export const Projections = () => {
 
   useEffect(() => {
     if (configs.length === 0 && clients.length > 0) {
-       const initialConfigs = generateProjectionsConfig(clients, ufValue);
+       const initialConfigs = generateProjectionsConfig(tariffs, clients, ufValue);
        setConfigs(initialConfigs);
        saveToStorage('runbox_projection_adjustments', initialConfigs);
     } else {

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Client, Driver, Order, Route, TariffRule } from '../types';
-import { mockClients, mockDrivers, mockOrders, mockRoutes, mockTariffs } from '../data/mockData';
+import { Client, Driver, Order, Route } from '../types';
+import { BaseTariff, initialTariffs } from '../data/tariffs';
+import { mockClients, mockDrivers, mockOrders, mockRoutes } from '../data/mockData';
 import { loadFromStorage, saveToStorage } from '../lib/storage';
 
 interface AppContextType {
@@ -12,8 +13,8 @@ interface AppContextType {
   setDrivers: React.Dispatch<React.SetStateAction<Driver[]>>;
   routes: Route[];
   setRoutes: React.Dispatch<React.SetStateAction<Route[]>>;
-  tariffs: TariffRule[];
-  setTariffs: React.Dispatch<React.SetStateAction<TariffRule[]>>;
+  tariffs: BaseTariff[];
+  setTariffs: React.Dispatch<React.SetStateAction<BaseTariff[]>>;
   ufValue: number;
   setUfValue: React.Dispatch<React.SetStateAction<number>>;
   user: { name: string; email: string; role: string } | null;
@@ -27,7 +28,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [clients, setClients] = useState<Client[]>(() => loadFromStorage('runbox_clients', mockClients));
   const [drivers, setDrivers] = useState<Driver[]>(() => loadFromStorage('runbox_drivers', mockDrivers));
   const [routes, setRoutes] = useState<Route[]>(() => loadFromStorage('runbox_routes', mockRoutes));
-  const [tariffs, setTariffs] = useState<TariffRule[]>(() => loadFromStorage('runbox_tariffs', mockTariffs));
+  const [tariffs, setTariffs] = useState<BaseTariff[]>(() => loadFromStorage('runbox_tariffs', initialTariffs));
   const [ufValue, setUfValue] = useState<number>(37000);
   const [user] = useState({ name: 'Admin User', email: 'admin@runbox.cl', role: 'admin' });
 
@@ -77,7 +78,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setClients(mockClients);
     setDrivers(mockDrivers);
     setRoutes(mockRoutes);
-    setTariffs(mockTariffs);
+    setTariffs(initialTariffs);
   };
 
   return (

@@ -38,12 +38,13 @@ export const getAccumulatedOrdersByClient = (
 };
 
 export const generateProjectionsConfig = (
+  tariffsList: BaseTariff[],
   clientsList: Client[],
   ufValue: number
 ): ClientProjectionConfig[] => {
   return clientsList.map(c => {
     const clientName = c.name.toLowerCase();
-    const t = initialTariffs.find(t => t.clientId === c.id);
+    const t = tariffsList.find(t => t.clientId === c.id);
 
     let calendarType: CalendarType = 'lunes_viernes';
 
